@@ -62,7 +62,7 @@ module.exports = {
         const drugEmbed = new EmbedBuilder()
           .setTitle('💊 Drug Task Status')
           .setColor('#10B981')
-          .setDescription(`**Daily Progress: ${drugStatus.count}/${drugStatus.limit}**\n${createProgressBar(drugStatus.count, drugStatus.limit)}\nToday's Icy members who completed drug tasks.`)
+          .setDescription(`Daily Progress: ${drugStatus.count}/${drugStatus.limit}\n${createProgressBar(drugStatus.count, drugStatus.limit)}\nToday's IC members who completed drug tasks.`)
           .setTimestamp()
           .setFooter({ text: `Resets at midnight UTC • ${resetDate}` });
           
@@ -80,14 +80,14 @@ module.exports = {
           });
           
           drugEmbed.addFields({
-            name: '👥 آیسی افرادها (IC Members)',
+            name: '(Members)',
             value: playerList,
             inline: false
           });
         } else {
           drugEmbed.addFields({
-            name: '👥 آیسی افرادها (IC Members)',
-            value: '_No players have completed tasks today_',
+            name: '(Members)',
+            value: 'No drug tasks completed today',
             inline: false
           });
         }

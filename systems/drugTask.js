@@ -45,7 +45,7 @@ function createDrugTaskEmbed(records, resetDate) {
   const embed = new EmbedBuilder()
     .setTitle('💊 Drug Task Status')
     .setColor('#10B981')
-    .setDescription(`**Daily Progress: ${count}/${limit}**\n${createProgressBar(count, limit)}\nToday's Icy members who completed drug tasks.`)
+    .setDescription(`Daily Progress: ${count}/${limit}\n${createProgressBar(count, limit)}\nToday's IC members who completed drug tasks.`)
     .setTimestamp()
     .setFooter({ text: `Resets at midnight UTC • ${resetDate}` });
 
@@ -91,8 +91,8 @@ function createDrugTaskEmbed(records, resetDate) {
   }
   
   embed.addFields({
-    name: '👥 آیسی افرادها (IC Members)',
-    value: leaderboardText,
+    name: '(Members)',
+    value: leaderboardText || 'No drug tasks completed today',
     inline: false
   });
 
