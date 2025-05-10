@@ -41,7 +41,7 @@ function createGangTaskEmbed(morningRecords, eveningRecords, resetDate) {
   }
   
   embed.addFields({
-    name: '🌅 Morning Period (00:00 - 12:00)',
+    name: '🌅 Morning Period (7:00 AM - 6:00 PM)',
     value: morningText,
     inline: false
   });
@@ -65,7 +65,7 @@ function createGangTaskEmbed(morningRecords, eveningRecords, resetDate) {
   }
   
   embed.addFields({
-    name: '🌃 Evening Period (12:00 - 00:00)',
+    name: '🌃 Evening Period (6:00 PM - 7:00 AM)',
     value: eveningText,
     inline: false
   });
