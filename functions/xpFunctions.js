@@ -104,66 +104,66 @@ async function updateXPStatus(client, config, xpType) {
       const status = await db.getDrugTaskXPStatus();
       
       embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('💊 Drug Task XP Status')
-        .setDescription(`Daily progress: **${status.count}/${status.limit}** players completed`)
+        .setColor('#10B981')
+        .setTitle('💊 Drug Task Status')
+        .setDescription(`**Daily Progress**\n${status.count}/${status.limit} players completed today`)
         .setTimestamp();
       
       // Add player list with checkmarks
       if (status.players.length > 0) {
         const playerList = status.players.map(player => 
-          `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+          `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
         ).join('\n');
         
         embed.addFields({
-          name: 'Completed Players:',
-          value: playerList || 'No players yet',
+          name: '👥 Completed Players',
+          value: playerList,
           inline: false
         });
       } else {
         embed.addFields({
-          name: 'Completed Players:',
-          value: 'No players yet',
+          name: '👥 Completed Players',
+          value: '_No players have completed tasks today_',
           inline: false
         });
       }
       
-      embed.setFooter({ text: `Reset at midnight | Current date: ${status.date}` });
+      embed.setFooter({ text: `Resets at midnight UTC • ${status.date}` });
       
     } else if (xpType === 'gang') {
       const status = await db.getGangTaskXPStatus();
       
       embed = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle('🔫 Gang Task XP Status')
-        .setDescription(`Daily gang tasks status`)
+        .setColor('#EF4444')
+        .setTitle('🔫 Gang Task Status')
+        .setDescription(`**Daily Gang Operations**\nTracking progress for today's gang activities`)
         .setTimestamp();
       
       // Add morning period (6AM-6PM)
       const morningPlayers = status.morningPlayers.map(player => 
-        `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+        `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
       ).join('\n');
       
       embed.addFields({
-        name: 'Morning Period (6AM-6PM):',
-        value: morningPlayers || 'No players yet ❌',
+        name: '☀️ Daytime Operations (6AM-6PM)',
+        value: morningPlayers || '_No operations completed during daytime_',
         inline: false
       });
       
       // Add night period (6PM-6AM)
       const nightPlayers = status.nightPlayers.map(player => 
-        `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+        `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
       ).join('\n');
       
       embed.addFields({
-        name: 'Night Period (6PM-6AM):',
-        value: nightPlayers || 'No players yet ❌',
+        name: '🌙 Nighttime Operations (6PM-6AM)',
+        value: nightPlayers || '_No operations completed during nighttime_',
         inline: false
       });
       
       // Add current period indicator
-      const currentPeriodText = status.currentPeriod === 1 ? 'Morning Period (6AM-6PM)' : 'Night Period (6PM-6AM)';
-      embed.setFooter({ text: `Current period: ${currentPeriodText} | Date: ${status.date}` });
+      const currentPeriodText = status.currentPeriod === 1 ? 'Daytime (6AM-6PM)' : 'Nighttime (6PM-6AM)';
+      embed.setFooter({ text: `Active Period: ${currentPeriodText} • ${status.date}` });
     }
     
     if (!embed) {
@@ -171,10 +171,7 @@ async function updateXPStatus(client, config, xpType) {
       return;
     }
     
-    // Update in both channels
-    await updateStatusInChannel(client, config.xpStatusChannelId, xpType, embed);
-    
-    // Also update in the inventory status channel
+    // Only update in the main status channel
     if (config.statusChannelId) {
       await updateStatusInChannel(client, config.statusChannelId, xpType, embed);
     }
@@ -209,10 +206,19 @@ async function updateStatusInChannel(client, channelId, xpType, embed) {
         msg.embeds.length > 0 && 
         msg.embeds[0].title && 
         (
-          (xpType === 'drug' && msg.embeds[0].title.includes('Drug Task XP')) || 
-          (xpType === 'gang' && msg.embeds[0].title.includes('Gang Task XP'))
+          (xpType === 'drug' && msg.embeds[0].title.includes('Drug Task')) || 
+          (xpType === 'gang' && msg.embeds[0].title.includes('Gang Task'))
         )
       );
+      
+      // Store message reference in global object if available
+      if (client.statusMessages && botMessages.size > 0) {
+        if (xpType === 'drug') {
+          client.statusMessages.drugTask = botMessages.first();
+        } else if (xpType === 'gang') {
+          client.statusMessages.gangTask = botMessages.first();
+        }
+      }
       
       if (botMessages.size > 0) {
         // Update the most recent status message

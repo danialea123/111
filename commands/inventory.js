@@ -22,13 +22,14 @@ module.exports = {
       
       // Create embed
       const embed = new EmbedBuilder()
-        .setTitle('📦 Current Inventory')
-        .setColor(0x2B2D31)
+        .setTitle('📦 Inventory Status')
+        .setColor('#6366F1')
+        .setDescription('**Current Stock Levels**')
         .setTimestamp()
         .setFooter({ text: 'Last updated' });
       
       if (!items || items.length === 0) {
-        embed.setDescription('No items in inventory.');
+        embed.setDescription('**Inventory Empty**\n_No items currently in stock_');
       } else {
         // Group items by category
         const drugs = items.filter(item => item.category === 'drug');
@@ -37,11 +38,19 @@ module.exports = {
         if (drugs.length > 0) {
           let drugList = '';
           drugs.forEach(item => {
-            drugList += `**${item.name}(${item.quantity})**\n`;
+            // Add emoji based on quantity levels
+            let stockEmoji = '🔴'; // Low stock
+            if (item.quantity > 50) {
+              stockEmoji = '🟢'; // High stock
+            } else if (item.quantity > 20) {
+              stockEmoji = '🟡'; // Medium stock
+            }
+            
+            drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
           });
           
           embed.addFields({
-            name: 'Drugs',
+            name: '💊 Drug Inventory',
             value: drugList,
             inline: false
           });

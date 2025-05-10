@@ -237,8 +237,9 @@ async function processLogMessage(message, client, config, content = null, embedA
         const items = await db.getItems();
         
         const embed = new EmbedBuilder()
-          .setTitle('📦 Updated Inventory')
-          .setColor(0x2B2D31)
+          .setTitle('📦 Inventory Status')
+          .setColor('#6366F1')
+          .setDescription('**Current Stock Levels**')
           .setTimestamp()
           .setFooter({ text: 'Last updated' });
         
@@ -247,11 +248,19 @@ async function processLogMessage(message, client, config, content = null, embedA
         if (drugs.length > 0) {
           let drugList = '';
           drugs.forEach(item => {
-            drugList += `**${item.name}(${item.quantity})**\n`;
+            // Add emoji based on quantity levels
+            let stockEmoji = '🔴'; // Low stock
+            if (item.quantity > 50) {
+              stockEmoji = '🟢'; // High stock
+            } else if (item.quantity > 20) {
+              stockEmoji = '🟡'; // Medium stock
+            }
+            
+            drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
           });
           
           embed.addFields({
-            name: 'Drugs',
+            name: '💊 Drug Inventory',
             value: drugList,
             inline: false
           });
@@ -272,14 +281,14 @@ async function processLogMessage(message, client, config, content = null, embedA
             // Update the most recent status message
             const statusMessage = botMessages.first();
             await statusMessage.edit({ 
-              content: '**Inventory System Bot is online!**',
+              content: null,
               embeds: [embed] 
             });
             logger.logMessage(`Updated existing inventory status message: ${statusMessage.id}`);
           } else {
             // If no existing message found, send a new one
             const newMessage = await statusChannel.send({ 
-              content: '**Inventory System Bot is online!**',
+              content: null,
               embeds: [embed] 
             });
             logger.logMessage(`Created new inventory status message: ${newMessage.id}`);

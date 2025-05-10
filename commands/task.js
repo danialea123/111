@@ -31,31 +31,31 @@ module.exports = {
         
         // Create embed for drug tasks
         const drugEmbed = new EmbedBuilder()
-          .setColor(0x00FF00)
-          .setTitle('💊 Drug Task XP Status')
-          .setDescription(`Daily progress: **${drugStatus.count}/${drugStatus.limit}** players completed`)
+          .setColor('#10B981')
+          .setTitle('💊 Drug Task Status')
+          .setDescription(`**Daily Progress**\n${drugStatus.count}/${drugStatus.limit} players completed today`)
           .setTimestamp();
         
         // Add player list with checkmarks
         if (drugStatus.players.length > 0) {
           const playerList = drugStatus.players.map(player => 
-            `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+            `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
           ).join('\n');
           
           drugEmbed.addFields({
-            name: 'Completed Players:',
-            value: playerList || 'No players yet',
+            name: '👥 Completed Players',
+            value: playerList,
             inline: false
           });
         } else {
           drugEmbed.addFields({
-            name: 'Completed Players:',
-            value: 'No players yet',
+            name: '👥 Completed Players',
+            value: '_No players have completed tasks today_',
             inline: false
           });
         }
         
-        drugEmbed.setFooter({ text: `Reset at midnight | Current date: ${drugStatus.date}` });
+        drugEmbed.setFooter({ text: `Resets at midnight UTC • ${drugStatus.date}` });
         
         // Send embed
         await interaction.editReply({ embeds: [drugEmbed] });
@@ -67,36 +67,36 @@ module.exports = {
         
         // Create embed for gang tasks
         const gangEmbed = new EmbedBuilder()
-          .setColor(0xFF0000)
-          .setTitle('🔫 Gang Task XP Status')
-          .setDescription(`Daily gang tasks status`)
+          .setColor('#EF4444')
+          .setTitle('🔫 Gang Task Status')
+          .setDescription(`**Daily Gang Operations**\nTracking progress for today's gang activities`)
           .setTimestamp();
         
         // Add morning period (6AM-6PM)
         const morningPlayers = gangStatus.morningPlayers.map(player => 
-          `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+          `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
         ).join('\n');
         
         gangEmbed.addFields({
-          name: 'Morning Period (6AM-6PM):',
-          value: morningPlayers || 'No players yet ❌',
+          name: '☀️ Daytime Operations (6AM-6PM)',
+          value: morningPlayers || '_No operations completed during daytime_',
           inline: false
         });
         
         // Add night period (6PM-6AM)
         const nightPlayers = gangStatus.nightPlayers.map(player => 
-          `${player.ic_player_name} ✅ (${player.xp_amount} XP)`
+          `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
         ).join('\n');
         
         gangEmbed.addFields({
-          name: 'Night Period (6PM-6AM):',
-          value: nightPlayers || 'No players yet ❌',
+          name: '🌙 Nighttime Operations (6PM-6AM)',
+          value: nightPlayers || '_No operations completed during nighttime_',
           inline: false
         });
         
         // Add current period indicator
-        const currentPeriodText = gangStatus.currentPeriod === 1 ? 'Morning Period (6AM-6PM)' : 'Night Period (6PM-6AM)';
-        gangEmbed.setFooter({ text: `Current period: ${currentPeriodText} | Date: ${gangStatus.date}` });
+        const currentPeriodText = gangStatus.currentPeriod === 1 ? 'Daytime (6AM-6PM)' : 'Nighttime (6PM-6AM)';
+        gangEmbed.setFooter({ text: `Active Period: ${currentPeriodText} • ${gangStatus.date}` });
         
         // Send embed
         await interaction.editReply({ embeds: [gangEmbed] });

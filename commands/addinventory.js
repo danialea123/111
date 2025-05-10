@@ -25,9 +25,9 @@ module.exports = {
         .setRequired(true)
         .addChoices(
           { name: 'Crack', value: 'Crack' },
-          { name: 'Ghaarch', value: 'Ghaarch' },
+          { name: 'Mushroom', value: 'Ghaarch' },
           { name: 'Marijuana', value: 'Marijuana' },
-          { name: 'Shishe', value: 'Shishe' },
+          { name: 'Crystal Meth', value: 'Shishe' },
           { name: 'Cocaine', value: 'Cocaine' }
         )
     )
@@ -56,15 +56,16 @@ module.exports = {
       
       // Create response embed
       const embed = new EmbedBuilder()
-        .setTitle('Inventory Updated')
-        .setColor(0x00FF00)
-        .setDescription(`Successfully ${action === 'add' ? 'added to' : 'removed from'} inventory.`)
+        .setTitle('🔄 Inventory Updated')
+        .setColor(action === 'add' ? '#10B981' : '#F43F5E')
+        .setDescription(`Successfully ${action === 'add' ? '**added to**' : '**removed from**'} inventory.`)
         .addFields(
-          { name: 'Item', value: itemName, inline: true },
-          { name: 'Amount', value: amount.toString(), inline: true },
-          { name: 'New Quantity', value: result.quantity.toString(), inline: true }
+          { name: 'Item', value: `\`${itemName}\``, inline: true },
+          { name: 'Amount', value: `**${amount}**`, inline: true },
+          { name: 'New Quantity', value: `**${result.quantity}**`, inline: true }
         )
-        .setTimestamp();
+        .setTimestamp()
+        .setFooter({ text: `Admin: ${interaction.user.username}` });
       
       // Send response
       await interaction.editReply({ embeds: [embed] });
@@ -78,8 +79,9 @@ module.exports = {
           
           // Create embed
           const statusEmbed = new EmbedBuilder()
-            .setTitle('📦 Updated Inventory Status')
-            .setColor(0x2B2D31)
+            .setTitle('📦 Inventory Status')
+            .setColor('#6366F1')
+            .setDescription('**Current Stock Levels**')
             .setTimestamp()
             .setFooter({ text: 'Last updated' });
           
@@ -88,17 +90,74 @@ module.exports = {
           if (drugs.length > 0) {
             let drugList = '';
             drugs.forEach(item => {
-              drugList += `**${item.name}(${item.quantity})**\n`;
+              // Add emoji based on quantity levels
+              let stockEmoji = '🔴'; // Low stock
+              if (item.quantity > 50) {
+                stockEmoji = '🟢'; // High stock
+              } else if (item.quantity > 20) {
+                stockEmoji = '🟡'; // Medium stock
+              }
+              
+              drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
             });
             
             statusEmbed.addFields({
-              name: 'Drugs',
+              name: '💊 Drug Inventory',
               value: drugList,
               inline: false
             });
           }
           
-          await statusChannel.send({ embeds: [statusEmbed] });
+          // Try to find and update existing inventory message
+          try {
+            // First, check if we have the message ID stored in client
+            if (interaction.client.statusMessages && interaction.client.statusMessages.inventory) {
+              // Try to fetch and update the existing message
+              try {
+                await interaction.client.statusMessages.inventory.edit({ embeds: [statusEmbed] });
+                console.log(`Updated persistent inventory message: ${interaction.client.statusMessages.inventory.id}`);
+                return; // Successfully updated, exit early
+              } catch (editError) {
+                console.error('Error updating stored inventory message, will try searching:', editError);
+                // Continue to fallback method if edit fails
+              }
+            }
+            
+            // Fallback: search for an existing message if direct reference fails
+            const messages = await statusChannel.messages.fetch({ limit: 10 });
+            const botMessages = messages.filter(msg => 
+              msg.author.id === interaction.client.user.id && 
+              msg.embeds.length > 0 && 
+              msg.embeds[0].title && 
+              msg.embeds[0].title.includes('Inventory Status')
+            );
+            
+            if (botMessages.size > 0) {
+              // Update existing message
+              const statusMessage = botMessages.first();
+              await statusMessage.edit({ embeds: [statusEmbed] });
+              console.log(`Updated existing inventory message: ${statusMessage.id}`);
+              
+              // Store reference for future use
+              if (interaction.client.statusMessages) {
+                interaction.client.statusMessages.inventory = statusMessage;
+              }
+            } else {
+              // Create new message as last resort
+              const newMessage = await statusChannel.send({ embeds: [statusEmbed] });
+              console.log(`Created new inventory message: ${newMessage.id}`);
+              
+              // Store reference for future use
+              if (interaction.client.statusMessages) {
+                interaction.client.statusMessages.inventory = newMessage;
+              }
+            }
+          } catch (messageError) {
+            console.error('Error finding/updating inventory message:', messageError);
+            // If all else fails, send a new message
+            const newMessage = await statusChannel.send({ embeds: [statusEmbed] });
+            console.log(`Created fallback inventory message: ${newMessage.id}`);
+          }
         }
       } catch (error) {
         console.error('Error updating status channel:', error);

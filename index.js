@@ -8,7 +8,7 @@ require('dotenv').config();
 const config = {
   token: process.env.DISCORD_TOKEN,
   logChannelId: process.env.LOG_CHANNEL_ID || '1250989394303914007',
-  statusChannelId: process.env.STATUS_CHANNEL_ID || '1370529169624006796',
+  statusChannelId: process.env.STATUS_CHANNEL_ID || '1370727326509305927',
   xpStatusChannelId: process.env.XP_STATUS_CHANNEL_ID || '1342153823732367571', // Channel to post XP status updates
   clientId: process.env.CLIENT_ID || '1370533457046011915',
   guildId: process.env.GUILD_ID || '998658556452675584',
@@ -99,8 +99,12 @@ async function registerCommands() {
   }
 }
 
-// Variable to store the reference to status message
-let statusMessage = null;
+// Variables to store the references to status messages
+const statusMessages = {
+  inventory: null,
+  drugTask: null,
+  gangTask: null
+};
 
 // Check status channel
 async function checkStatusChannel() {
@@ -138,7 +142,8 @@ async function sendInitialInventoryStatus() {
     const { EmbedBuilder } = require('discord.js');
     const embed = new EmbedBuilder()
       .setTitle('📦 Inventory Status')
-      .setColor(0x2B2D31)
+      .setColor('#6366F1')
+      .setDescription('**Current Stock Levels**')
       .setTimestamp()
       .setFooter({ text: 'Last updated' });
     
@@ -147,11 +152,19 @@ async function sendInitialInventoryStatus() {
     if (drugs.length > 0) {
       let drugList = '';
       drugs.forEach(item => {
-        drugList += `**${item.name}(${item.quantity})**\n`;
+        // Add emoji based on quantity levels
+        let stockEmoji = '🔴'; // Low stock
+        if (item.quantity > 50) {
+          stockEmoji = '🟢'; // High stock
+        } else if (item.quantity > 20) {
+          stockEmoji = '🟡'; // Medium stock
+        }
+        
+        drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
       });
       
       embed.addFields({
-        name: 'Drugs',
+        name: '💊 Drug Inventory',
         value: drugList,
         inline: false
       });
@@ -169,30 +182,30 @@ async function sendInitialInventoryStatus() {
       );
       
       if (botMessages.size > 0) {
-        // Use the most recent message as our status message
-        statusMessage = botMessages.first();
-        console.log(`Found existing inventory status message with ID: ${statusMessage.id}`);
+        // Use the most recent message as our inventory status message
+        statusMessages.inventory = botMessages.first();
+        console.log(`Found existing inventory status message with ID: ${statusMessages.inventory.id}`);
         
         // Update the existing message
-        await statusMessage.edit({ 
+        await statusMessages.inventory.edit({ 
           embeds: [embed] 
         });
-        console.log(`Updated existing inventory status message: ${statusMessage.id}`);
+        console.log(`Updated existing inventory status message: ${statusMessages.inventory.id}`);
       } else {
         // Send a new message if none found
-        statusMessage = await statusChannel.send({ 
+        statusMessages.inventory = await statusChannel.send({ 
           embeds: [embed] 
         });
-        console.log(`Created new inventory status message: ${statusMessage.id}`);
+        console.log(`Created new inventory status message: ${statusMessages.inventory.id}`);
       }
     } catch (fetchError) {
       console.error('Error fetching messages to find existing status:', fetchError);
       
       // If there was an error, try to send a new message anyway
-      statusMessage = await statusChannel.send({ 
+      statusMessages.inventory = await statusChannel.send({ 
         embeds: [embed] 
       });
-      console.log(`Created new inventory status message (after error): ${statusMessage.id}`);
+      console.log(`Created new inventory status message (after error): ${statusMessages.inventory.id}`);
     }
     
     console.log(`Inventory status updated in channel ${config.statusChannelId}`);
@@ -231,6 +244,9 @@ client.on('ready', async () => {
     status: 'online',
   });
   
+  // Make status messages available to all parts of the bot
+  client.statusMessages = statusMessages;
+  
   // Register slash commands
   await registerCommands();
   
@@ -241,7 +257,7 @@ client.on('ready', async () => {
     // Send all the status updates
     await sendInitialInventoryStatus();
     
-    // Send initial XP status to both channels
+    // Send initial XP status to main channel only
     await sendInitialXPStatus();
   } else {
     console.log('No status channel configured, skipping status message initialization');
