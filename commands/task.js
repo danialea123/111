@@ -11,32 +11,18 @@ module.exports = {
     )
     .addSubcommand(subcommand => 
       subcommand
-        .setName('drug')
-        .setDescription('Add drug task XP for a player')
+        .setName('action')
+        .setDescription('Add task XP for a player')
         .addStringOption(option => 
           option
-            .setName('ic_name')
-            .setDescription('IC name of the player (in-character name)')
+            .setName('type')
+            .setDescription('Type of task')
             .setRequired(true)
+            .addChoices(
+              { name: 'Drug Task', value: 'drug' },
+              { name: 'Gang Task', value: 'gang' }
+            )
         )
-        .addStringOption(option => 
-          option
-            .setName('ooc_name')
-            .setDescription('OOC name of the player (out-of-character name)')
-            .setRequired(true)
-        )
-        .addIntegerOption(option => 
-          option
-            .setName('xp')
-            .setDescription('Amount of XP to add')
-            .setRequired(true)
-            .setMinValue(1)
-        )
-    )
-    .addSubcommand(subcommand => 
-      subcommand
-        .setName('gang')
-        .setDescription('Add gang task XP for a player')
         .addStringOption(option => 
           option
             .setName('ic_name')
@@ -140,58 +126,53 @@ module.exports = {
         return;
       }
       
-      // Drug task subcommand - add drug task XP
-      if (subcommand === 'drug') {
+      // Action subcommand - add task XP
+      if (subcommand === 'action') {
         await interaction.deferReply();
         
+        const taskType = interaction.options.getString('type');
         const icName = interaction.options.getString('ic_name');
         const oocName = interaction.options.getString('ooc_name');
         const xpAmount = interaction.options.getInteger('xp');
         
-        // Add drug task XP
         try {
-          const result = await db.addDrugTaskXP(icName, oocName, xpAmount);
+          let result;
+          let embed;
           
-          // Send confirmation
-          const embed = new EmbedBuilder()
-            .setColor(0x00FF00)
-            .setTitle('✅ Drug Task XP Added')
-            .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
-            .setTimestamp();
+          // Process based on task type
+          if (taskType === 'drug') {
+            // Add drug task XP
+            result = await db.addDrugTaskXP(icName, oocName, xpAmount);
+            
+            // Send confirmation
+            embed = new EmbedBuilder()
+              .setColor(0x00FF00)
+              .setTitle('✅ Drug Task XP Added')
+              .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
+              .setTimestamp();
+            
+            // Update XP status in status channel
+            await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'drug');
+          } else if (taskType === 'gang') {
+            // Add gang task XP
+            result = await db.addGangTaskXP(icName, oocName, xpAmount);
+            
+            // Send confirmation
+            embed = new EmbedBuilder()
+              .setColor(0xFF0000)
+              .setTitle('✅ Gang Task XP Added')
+              .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
+              .setTimestamp();
+            
+            // Update XP status in status channel
+            await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'gang');
+          } else {
+            // Unknown task type
+            await interaction.editReply({ content: `❌ Error: Unknown task type: ${taskType}`, ephemeral: true });
+            return;
+          }
           
           await interaction.editReply({ embeds: [embed] });
-          
-          // Update XP status in status channel
-          await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'drug');
-        } catch (error) {
-          await interaction.editReply({ content: `❌ Error: ${error.message}`, ephemeral: true });
-        }
-        return;
-      }
-      
-      // Gang task subcommand - add gang task XP
-      if (subcommand === 'gang') {
-        await interaction.deferReply();
-        
-        const icName = interaction.options.getString('ic_name');
-        const oocName = interaction.options.getString('ooc_name');
-        const xpAmount = interaction.options.getInteger('xp');
-        
-        // Add gang task XP
-        try {
-          const result = await db.addGangTaskXP(icName, oocName, xpAmount);
-          
-          // Send confirmation
-          const embed = new EmbedBuilder()
-            .setColor(0xFF0000)
-            .setTitle('✅ Gang Task XP Added')
-            .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
-            .setTimestamp();
-          
-          await interaction.editReply({ embeds: [embed] });
-          
-          // Update XP status in status channel
-          await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'gang');
         } catch (error) {
           await interaction.editReply({ content: `❌ Error: ${error.message}`, ephemeral: true });
         }
