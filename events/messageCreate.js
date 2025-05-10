@@ -31,9 +31,15 @@ module.exports = {
         // Special handling for embed titles with action keywords
         let embedAction = null;
         let embedItem = null;
+        let embedXp = false;
         if (embed.title) {
-          // Check for specific actions in the title
-          if (embed.title.includes('Bardasht') || embed.title.includes('برداشت') || embed.title.toLowerCase().includes('remove')) {
+          // Check for XP-related embeds
+          if (embed.title.includes('Use XP') || embed.title.toLowerCase().includes('xp')) {
+            logger.logMessage('Found "XP" related embed');
+            embedXp = true;
+          }
+          // Check for specific inventory actions in the title
+          else if (embed.title.includes('Bardasht') || embed.title.includes('برداشت') || embed.title.toLowerCase().includes('remove')) {
             logger.logMessage('Found "Bardasht" (remove) action in embed title');
             embedAction = 'remove';
           } else if (embed.title.includes('Gozashtan') || embed.title.includes('گذاشت') || embed.title.toLowerCase().includes('add')) {
@@ -84,24 +90,37 @@ module.exports = {
           
           // Try to extract content from fields
           if (embed.fields && embed.fields.length > 0) {
-            for (const field of embed.fields) {
-              logger.logMessage(`Processing embed field: ${field.name} - ${field.value}`);
-              
-              // Look for inventory/item related fields
-              if (field.name && (
-                  field.name.includes('Item') || 
-                  field.name.includes('آیتم') ||
-                  field.name.includes('Inventory') ||
-                  field.name.includes('انبار') ||
-                  field.name.includes('Esm')
-                 )) {
-                logger.logMessage(`Found relevant field: ${field.name} - ${field.value}`);
-                // If this is a field with details about items, create a combined string
-                const combinedData = `${field.name}: ${field.value}`;
-                await processLogMessage(message, client, config, combinedData, embedAction);
-              } else {
-                // Process all fields in embeds that look like logs
-                await processLogMessage(message, client, config, field.value, embedAction);
+            // For XP embeds, combine all fields into a single string for parsing
+            if (embedXp) {
+              logger.logMessage(`Processing XP embed with ${embed.fields.length} fields`);
+              let combinedXpData = `${embed.title}\n`;
+              for (const field of embed.fields) {
+                combinedXpData += `${field.name}: ${field.value}\n`;
+              }
+              logger.logMessage(`Combined XP data: ${combinedXpData}`);
+              await processLogMessage(message, client, config, combinedXpData);
+            } 
+            // Process standard inventory fields
+            else {
+              for (const field of embed.fields) {
+                logger.logMessage(`Processing embed field: ${field.name} - ${field.value}`);
+                
+                // Look for inventory/item related fields
+                if (field.name && (
+                    field.name.includes('Item') || 
+                    field.name.includes('آیتم') ||
+                    field.name.includes('Inventory') ||
+                    field.name.includes('انبار') ||
+                    field.name.includes('Esm')
+                   )) {
+                  logger.logMessage(`Found relevant field: ${field.name} - ${field.value}`);
+                  // If this is a field with details about items, create a combined string
+                  const combinedData = `${field.name}: ${field.value}`;
+                  await processLogMessage(message, client, config, combinedData, embedAction);
+                } else {
+                  // Process all fields in embeds that look like logs
+                  await processLogMessage(message, client, config, field.value, embedAction);
+                }
               }
             }
           } else if (embedAction) {
@@ -278,9 +297,14 @@ async function processLogMessage(message, client, config, content = null, embedA
 function parseLogMessage(content, config, embedAction = null) {
   try {
     // Check for XP task logs first
-    const isXpTask = content.includes('Use XP') || (content.toLowerCase().includes('xp') && content.toLowerCase().includes('task'));
+    const isXpTask = content.includes('Use XP') || 
+                    (content.toLowerCase().includes('xp') && content.toLowerCase().includes('task')) ||
+                    (content.toLowerCase().includes('details') && content.toLowerCase().includes('xp model')) ||
+                    (content.toLowerCase().includes('amount') && 
+                     (content.toLowerCase().includes('ic player name') || content.toLowerCase().includes('ooc player name')));
     
     if (isXpTask) {
+      logger.logMessage(`Detected XP-related message: ${content.substring(0, 100)}...`);
       const xpFunctions = require('../functions/xpFunctions');
       return xpFunctions.parseXPMessage(content, config);
     }

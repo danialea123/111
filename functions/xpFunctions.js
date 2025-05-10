@@ -228,7 +228,7 @@ function parseXPMessage(content, config) {
     let xpModel = null;
     
     // Check for XP Model in the message
-    const xpModelMatch = content.match(/XP\s*Model\s*:\s*([^\r\n]+)/i);
+    const xpModelMatch = content.match(/(?:XP\s*Model|Details[\s\S]*XP\s*Model)\s*:\s*([^\r\n]+)/i);
     if (xpModelMatch && xpModelMatch.length > 1) {
       xpModel = xpModelMatch[1].trim();
       logger.logMessage(`Found XP Model: ${xpModel}`);
@@ -242,9 +242,11 @@ function parseXPMessage(content, config) {
     
     // If we couldn't determine XP type from XP Model, try to infer from content
     if (!xpType) {
-      if (content.toLowerCase().includes('drug') && content.toLowerCase().includes('task')) {
+      if (content.toLowerCase().includes('drug') && 
+         (content.toLowerCase().includes('task') || content.toLowerCase().includes('xp'))) {
         xpType = 'drug';
-      } else if (content.toLowerCase().includes('gang') && content.toLowerCase().includes('task')) {
+      } else if (content.toLowerCase().includes('gang') && 
+                (content.toLowerCase().includes('task') || content.toLowerCase().includes('xp'))) {
         xpType = 'gang';
       }
     }
@@ -256,9 +258,9 @@ function parseXPMessage(content, config) {
     
     logger.logMessage(`Determined XP type: ${xpType}`);
     
-    // Extract XP amount
+    // Extract XP amount - Check for both Meghdar (old format) and Amount (new format)
     let xpAmount = 0;
-    const xpAmountMatch = content.match(/Meghdar\s*:\s*(\d+)/i);
+    const xpAmountMatch = content.match(/(?:Meghdar|Amount)\s*:\s*(\d+)/i);
     if (xpAmountMatch && xpAmountMatch.length > 1) {
       xpAmount = parseInt(xpAmountMatch[1], 10);
       logger.logMessage(`Found XP amount: ${xpAmount}`);
@@ -266,21 +268,21 @@ function parseXPMessage(content, config) {
     
     // Extract IC player name
     let icPlayerName = null;
-    const icPlayerMatch = content.match(/Esm\s*IC\s*Player\s*:\s*([^\r\n]+)/i);
+    const icPlayerMatch = content.match(/(?:Esm\s*IC\s*Player|IC\s*Player\s*Name)\s*:\s*([^\r\n]+)/i);
     if (icPlayerMatch && icPlayerMatch.length > 1) {
       icPlayerName = icPlayerMatch[1].trim();
       
-      // If the name has multiple words, use only the first part as the character name
-      if (icPlayerName.includes(' ')) {
+      // If the name has multiple words, use all parts (don't split)
+      /*if (icPlayerName.includes(' ')) {
         icPlayerName = icPlayerName.split(' ')[0].trim();
-      }
+      }*/
       
       logger.logMessage(`Found IC player: ${icPlayerName}`);
     }
     
     // Extract OOC player name
     let oocPlayerName = null;
-    const oocPlayerMatch = content.match(/Esm\s*OOC\s*Player\s*:\s*([^\r\n]+)/i);
+    const oocPlayerMatch = content.match(/(?:Esm\s*OOC\s*Player|OOC\s*Player\s*Name)\s*:\s*([^\r\n]+)/i);
     if (oocPlayerMatch && oocPlayerMatch.length > 1) {
       oocPlayerName = oocPlayerMatch[1].trim();
       logger.logMessage(`Found OOC player: ${oocPlayerName}`);
