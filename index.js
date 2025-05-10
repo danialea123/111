@@ -67,35 +67,43 @@ for (const file of eventFiles) {
 
 // Function to register slash commands
 async function registerCommands() {
+  if (!config.token || !config.clientId) {
+    console.log('Missing token or client ID, skipping slash command registration');
+    return;
+  }
+  
+  console.log(`Started registering ${slashCommands.length} application commands.`);
+  
+  // Create REST instance
+  const rest = new REST({ version: '10' }).setToken(config.token);
+  
+  // Try registering commands globally first
   try {
-    if (!config.token || !config.clientId) {
-      console.log('Missing token or client ID, skipping slash command registration');
-      return;
-    }
-    
-    console.log(`Started registering ${slashCommands.length} application commands.`);
-    
-    // Create REST instance
-    const rest = new REST({ version: '10' }).setToken(config.token);
-    
-    // Register commands
-    if (config.guildId) {
-      // Guild commands (instantly updates)
+    console.log('Registering commands globally (available in all servers)...');
+    await rest.put(
+      Routes.applicationCommands(config.clientId),
+      { body: slashCommands }
+    );
+    console.log('Successfully registered global commands (may take up to 1 hour to update)');
+    return;
+  } catch (globalError) {
+    console.error('Failed to register global commands:', globalError);
+  }
+  
+  // If global registration fails, try guild-specific registration
+  if (config.guildId) {
+    try {
+      console.log(`Registering guild-specific commands to ${config.guildId}...`);
       await rest.put(
         Routes.applicationGuildCommands(config.clientId, config.guildId),
-        { body: slashCommands },
+        { body: slashCommands }
       );
       console.log(`Successfully registered guild commands to ${config.guildId}`);
-    } else {
-      // Global commands (takes up to 1 hour to update)
-      await rest.put(
-        Routes.applicationCommands(config.clientId),
-        { body: slashCommands },
-      );
-      console.log('Successfully registered global commands (takes up to 1 hour to update)');
+    } catch (guildError) {
+      console.error('Failed to register guild commands:', guildError);
     }
-  } catch (error) {
-    console.error('Error registering commands:', error);
+  } else {
+    console.error('No guild ID available for fallback registration');
   }
 }
 
