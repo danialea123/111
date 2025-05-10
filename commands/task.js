@@ -3,44 +3,15 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('task')
-    .setDescription('View task status or add a task completion')
-    .addSubcommand(subcommand => 
-      subcommand
-        .setName('status')
-        .setDescription('View current task status for drug and gang tasks')
-    )
-    .addSubcommand(subcommand => 
-      subcommand
+    .setDescription('View task status')
+    .addStringOption(option => 
+      option
         .setName('action')
-        .setDescription('Add task XP for a player')
-        .addStringOption(option => 
-          option
-            .setName('type')
-            .setDescription('Type of task')
-            .setRequired(true)
-            .addChoices(
-              { name: 'Drug Task', value: 'drug' },
-              { name: 'Gang Task', value: 'gang' }
-            )
-        )
-        .addStringOption(option => 
-          option
-            .setName('ic_name')
-            .setDescription('IC name of the player (in-character name)')
-            .setRequired(true)
-        )
-        .addStringOption(option => 
-          option
-            .setName('ooc_name')
-            .setDescription('OOC name of the player (out-of-character name)')
-            .setRequired(true)
-        )
-        .addIntegerOption(option => 
-          option
-            .setName('xp')
-            .setDescription('Amount of XP to add')
-            .setRequired(true)
-            .setMinValue(1)
+        .setDescription('Type of task status to view')
+        .setRequired(true)
+        .addChoices(
+          { name: 'Drug Task Status', value: 'drug' },
+          { name: 'Gang Task Status', value: 'gang' }
         )
     ),
 
@@ -49,16 +20,14 @@ module.exports = {
       const db = require('../database');
       const xpFunctions = require('../functions/xpFunctions');
       
-      // Get subcommand
-      const subcommand = interaction.options.getSubcommand();
+      await interaction.deferReply();
       
-      // Status subcommand - show current task status
-      if (subcommand === 'status') {
-        await interaction.deferReply();
-        
-        // Get both drug and gang task status
+      // Get which task type to show
+      const actionType = interaction.options.getString('action');
+      
+      if (actionType === 'drug') {
+        // Get drug task status
         const drugStatus = await db.getDrugTaskXPStatus();
-        const gangStatus = await db.getGangTaskXPStatus();
         
         // Create embed for drug tasks
         const drugEmbed = new EmbedBuilder()
@@ -87,6 +56,14 @@ module.exports = {
         }
         
         drugEmbed.setFooter({ text: `Reset at midnight | Current date: ${drugStatus.date}` });
+        
+        // Send embed
+        await interaction.editReply({ embeds: [drugEmbed] });
+        return;
+      } 
+      else if (actionType === 'gang') {
+        // Get gang task status
+        const gangStatus = await db.getGangTaskXPStatus();
         
         // Create embed for gang tasks
         const gangEmbed = new EmbedBuilder()
@@ -121,61 +98,13 @@ module.exports = {
         const currentPeriodText = gangStatus.currentPeriod === 1 ? 'Morning Period (6AM-6PM)' : 'Night Period (6PM-6AM)';
         gangEmbed.setFooter({ text: `Current period: ${currentPeriodText} | Date: ${gangStatus.date}` });
         
-        // Send both embeds
-        await interaction.editReply({ embeds: [drugEmbed, gangEmbed] });
+        // Send embed
+        await interaction.editReply({ embeds: [gangEmbed] });
         return;
       }
-      
-      // Action subcommand - add task XP
-      if (subcommand === 'action') {
-        await interaction.deferReply();
-        
-        const taskType = interaction.options.getString('type');
-        const icName = interaction.options.getString('ic_name');
-        const oocName = interaction.options.getString('ooc_name');
-        const xpAmount = interaction.options.getInteger('xp');
-        
-        try {
-          let result;
-          let embed;
-          
-          // Process based on task type
-          if (taskType === 'drug') {
-            // Add drug task XP
-            result = await db.addDrugTaskXP(icName, oocName, xpAmount);
-            
-            // Send confirmation
-            embed = new EmbedBuilder()
-              .setColor(0x00FF00)
-              .setTitle('✅ Drug Task XP Added')
-              .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
-              .setTimestamp();
-            
-            // Update XP status in status channel
-            await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'drug');
-          } else if (taskType === 'gang') {
-            // Add gang task XP
-            result = await db.addGangTaskXP(icName, oocName, xpAmount);
-            
-            // Send confirmation
-            embed = new EmbedBuilder()
-              .setColor(0xFF0000)
-              .setTitle('✅ Gang Task XP Added')
-              .setDescription(`Added ${xpAmount} XP for ${icName} (${oocName})`)
-              .setTimestamp();
-            
-            // Update XP status in status channel
-            await xpFunctions.updateXPStatus(interaction.client, interaction.client.config, 'gang');
-          } else {
-            // Unknown task type
-            await interaction.editReply({ content: `❌ Error: Unknown task type: ${taskType}`, ephemeral: true });
-            return;
-          }
-          
-          await interaction.editReply({ embeds: [embed] });
-        } catch (error) {
-          await interaction.editReply({ content: `❌ Error: ${error.message}`, ephemeral: true });
-        }
+      else {
+        // Unknown action type
+        await interaction.editReply({ content: `❌ Error: Unknown action type: ${actionType}`, ephemeral: true });
         return;
       }
     } catch (error) {

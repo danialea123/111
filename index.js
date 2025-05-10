@@ -102,6 +102,24 @@ async function registerCommands() {
 // Variable to store the reference to status message
 let statusMessage = null;
 
+// Check status channel
+async function checkStatusChannel() {
+  try {
+    // Get the status channel
+    const statusChannel = client.channels.cache.get(config.statusChannelId);
+    if (!statusChannel) {
+      console.error(`Status channel not found: ${config.statusChannelId}`);
+      return false;
+    }
+    
+    console.log(`Status channel verified: ${config.statusChannelId}`);
+    return true;
+  } catch (error) {
+    console.error('Error checking status channel:', error);
+    return false;
+  }
+}
+
 // Send initial inventory status
 async function sendInitialInventoryStatus() {
   try {
@@ -157,14 +175,12 @@ async function sendInitialInventoryStatus() {
         
         // Update the existing message
         await statusMessage.edit({ 
-          content: '**Inventory System Bot is online!**',
           embeds: [embed] 
         });
         console.log(`Updated existing inventory status message: ${statusMessage.id}`);
       } else {
         // Send a new message if none found
         statusMessage = await statusChannel.send({ 
-          content: '**Inventory System Bot is online!**',
           embeds: [embed] 
         });
         console.log(`Created new inventory status message: ${statusMessage.id}`);
@@ -174,7 +190,6 @@ async function sendInitialInventoryStatus() {
       
       // If there was an error, try to send a new message anyway
       statusMessage = await statusChannel.send({ 
-        content: '**Inventory System Bot is online!**',
         embeds: [embed] 
       });
       console.log(`Created new inventory status message (after error): ${statusMessage.id}`);
@@ -189,24 +204,14 @@ async function sendInitialInventoryStatus() {
 // Initialize XP status in XP channel
 async function sendInitialXPStatus() {
   try {
-    if (!config.xpStatusChannelId) {
-      console.log('No XP status channel configured, skipping XP status initialization');
-      return;
-    }
-    
-    // Get the XP status channel
-    const xpStatusChannel = client.channels.cache.get(config.xpStatusChannelId);
-    if (!xpStatusChannel) {
-      console.error(`XP status channel not found: ${config.xpStatusChannelId}`);
-      return;
-    }
-    
     // Initialize both drug and gang task status
     const xpFunctions = require('./functions/xpFunctions');
+    
+    // Update XP statuses in both channels
     await xpFunctions.updateXPStatus(client, config, 'drug');
     await xpFunctions.updateXPStatus(client, config, 'gang');
     
-    console.log(`XP status initialized in channel ${config.xpStatusChannelId}`);
+    console.log(`XP status initialized`);
   } catch (error) {
     console.error('Error sending initial XP status:', error);
   }
@@ -229,11 +234,18 @@ client.on('ready', async () => {
   // Register slash commands
   await registerCommands();
   
-  // Send initial inventory status
-  await sendInitialInventoryStatus();
-  
-  // Send initial XP status 
-  await sendInitialXPStatus();
+  // Check if status channel exists
+  if (config.statusChannelId) {
+    await checkStatusChannel();
+    
+    // Send all the status updates
+    await sendInitialInventoryStatus();
+    
+    // Send initial XP status to both channels
+    await sendInitialXPStatus();
+  } else {
+    console.log('No status channel configured, skipping status message initialization');
+  }
 });
 
 // Login to Discord

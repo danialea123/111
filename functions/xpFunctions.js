@@ -96,24 +96,9 @@ async function processXPMessage(message, client, config, logData) {
 // Update XP Status in status channel
 async function updateXPStatus(client, config, xpType) {
   try {
-    // Check if xpStatusChannelId is configured
-    if (!config.xpStatusChannelId) {
-      logger.logMessage('No XP status channel configured');
-      return;
-    }
-    
-    logger.logMessage(`Updating ${xpType} XP status in channel ${config.xpStatusChannelId}`);
-    
-    const db = require('../database');
-    const statusChannel = await client.channels.fetch(config.xpStatusChannelId);
-    
-    if (!statusChannel) {
-      logger.logMessage(`XP status channel ${config.xpStatusChannelId} not found!`);
-      return;
-    }
-    
     // Create embed based on XP type
     let embed;
+    const db = require('../database');
     
     if (xpType === 'drug') {
       const status = await db.getDrugTaskXPStatus();
@@ -186,6 +171,35 @@ async function updateXPStatus(client, config, xpType) {
       return;
     }
     
+    // Update in both channels
+    await updateStatusInChannel(client, config.xpStatusChannelId, xpType, embed);
+    
+    // Also update in the inventory status channel
+    if (config.statusChannelId) {
+      await updateStatusInChannel(client, config.statusChannelId, xpType, embed);
+    }
+  } catch (error) {
+    logger.logMessage(`Error updating XP status: ${error.message}`);
+  }
+}
+
+// Helper function to update status in a specific channel
+async function updateStatusInChannel(client, channelId, xpType, embed) {
+  try {
+    if (!channelId) {
+      logger.logMessage(`No channel configured for ${xpType} status`);
+      return;
+    }
+    
+    logger.logMessage(`Updating ${xpType} XP status in channel ${channelId}`);
+    
+    const statusChannel = await client.channels.fetch(channelId);
+    
+    if (!statusChannel) {
+      logger.logMessage(`Channel ${channelId} not found!`);
+      return;
+    }
+    
     // Try to find existing XP status message
     try {
       const messages = await statusChannel.messages.fetch({ limit: 10 });
@@ -220,7 +234,7 @@ async function updateXPStatus(client, config, xpType) {
       await statusChannel.send({ embeds: [embed] });
     }
   } catch (error) {
-    logger.logMessage(`Error updating XP status: ${error.message}`);
+    logger.logMessage(`Error updating status in channel ${channelId}: ${error.message}`);
   }
 }
 
@@ -316,5 +330,6 @@ function parseXPMessage(content, config) {
 module.exports = {
   processXPMessage,
   updateXPStatus,
-  parseXPMessage
+  parseXPMessage,
+  updateStatusInChannel
 };
