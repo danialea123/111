@@ -17,86 +17,44 @@ module.exports = {
 
   async execute(interaction) {
     try {
-      const db = require('../database');
-      const xpFunctions = require('../functions/xpFunctions');
-      
       await interaction.deferReply();
       
       // Get which task type to show
       const actionType = interaction.options.getString('action');
       
       if (actionType === 'drug') {
-        // Get drug task status
+        // Import the drug task system
+        const drugTaskSystem = require('../systems/drugTask');
+        const db = require('../database');
+        
+        // Get current date and drug task data
+        const today = new Date();
+        const resetDate = today.toISOString().split('T')[0];
         const drugStatus = await db.getDrugTaskXPStatus();
         
-        // Create embed for drug tasks
-        const drugEmbed = new EmbedBuilder()
-          .setColor('#10B981')
-          .setTitle('💊 Drug Task Status')
-          .setDescription(`**Daily Progress**\n${drugStatus.count}/${drugStatus.limit} players completed today`)
-          .setTimestamp();
-        
-        // Add player list with checkmarks
-        if (drugStatus.players.length > 0) {
-          const playerList = drugStatus.players.map(player => 
-            `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
-          ).join('\n');
-          
-          drugEmbed.addFields({
-            name: '👥 Completed Players',
-            value: playerList,
-            inline: false
-          });
-        } else {
-          drugEmbed.addFields({
-            name: '👥 Completed Players',
-            value: '_No players have completed tasks today_',
-            inline: false
-          });
-        }
-        
-        drugEmbed.setFooter({ text: `Resets at midnight UTC • ${drugStatus.date}` });
+        // Create embed for drug tasks using the same logic as the system module
+        const drugEmbed = drugTaskSystem.createDrugTaskEmbed(drugStatus.players, resetDate);
         
         // Send embed
         await interaction.editReply({ embeds: [drugEmbed] });
         return;
       } 
       else if (actionType === 'gang') {
-        // Get gang task status
+        // Import the gang task system
+        const gangTaskSystem = require('../systems/gangTask');
+        const db = require('../database');
+        
+        // Get current date and gang task data
+        const today = new Date();
+        const resetDate = today.toISOString().split('T')[0];
         const gangStatus = await db.getGangTaskXPStatus();
         
-        // Create embed for gang tasks
-        const gangEmbed = new EmbedBuilder()
-          .setColor('#EF4444')
-          .setTitle('🔫 Gang Task Status')
-          .setDescription(`**Daily Gang Operations**\nTracking progress for today's gang activities`)
-          .setTimestamp();
-        
-        // Add morning period (6AM-6PM)
-        const morningPlayers = gangStatus.morningPlayers.map(player => 
-          `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
-        ).join('\n');
-        
-        gangEmbed.addFields({
-          name: '☀️ Daytime Operations (6AM-6PM)',
-          value: morningPlayers || '_No operations completed during daytime_',
-          inline: false
-        });
-        
-        // Add night period (6PM-6AM)
-        const nightPlayers = gangStatus.nightPlayers.map(player => 
-          `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
-        ).join('\n');
-        
-        gangEmbed.addFields({
-          name: '🌙 Nighttime Operations (6PM-6AM)',
-          value: nightPlayers || '_No operations completed during nighttime_',
-          inline: false
-        });
-        
-        // Add current period indicator
-        const currentPeriodText = gangStatus.currentPeriod === 1 ? 'Daytime (6AM-6PM)' : 'Nighttime (6PM-6AM)';
-        gangEmbed.setFooter({ text: `Active Period: ${currentPeriodText} • ${gangStatus.date}` });
+        // Create embed for gang tasks using the same logic as the system module
+        const gangEmbed = gangTaskSystem.createGangTaskEmbed(
+          gangStatus.morningPlayers, 
+          gangStatus.nightPlayers, 
+          resetDate
+        );
         
         // Send embed
         await interaction.editReply({ embeds: [gangEmbed] });

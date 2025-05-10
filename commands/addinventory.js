@@ -70,94 +70,15 @@ module.exports = {
       // Send response
       await interaction.editReply({ embeds: [embed] });
       
-      // Update status message in status channel
+      // Update inventory status using the inventory system module
       try {
         const statusChannel = interaction.client.channels.cache.get(interaction.client.config?.statusChannelId);
         if (statusChannel) {
-          // Get updated inventory
-          const items = await db.getItems();
+          // Import the inventory system
+          const inventorySystem = require('../systems/inventory');
           
-          // Create embed
-          const statusEmbed = new EmbedBuilder()
-            .setTitle('📦 Inventory Status')
-            .setColor('#6366F1')
-            .setDescription('**Current Stock Levels**')
-            .setTimestamp()
-            .setFooter({ text: 'Last updated' });
-          
-          // Add drug items
-          const drugs = items.filter(item => item.category === 'drug');
-          if (drugs.length > 0) {
-            let drugList = '';
-            drugs.forEach(item => {
-              // Add emoji based on quantity levels
-              let stockEmoji = '🔴'; // Low stock
-              if (item.quantity > 50) {
-                stockEmoji = '🟢'; // High stock
-              } else if (item.quantity > 20) {
-                stockEmoji = '🟡'; // Medium stock
-              }
-              
-              drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
-            });
-            
-            statusEmbed.addFields({
-              name: '💊 Drug Inventory',
-              value: drugList,
-              inline: false
-            });
-          }
-          
-          // Try to find and update existing inventory message
-          try {
-            // First, check if we have the message ID stored in client
-            if (interaction.client.statusMessages && interaction.client.statusMessages.inventory) {
-              // Try to fetch and update the existing message
-              try {
-                await interaction.client.statusMessages.inventory.edit({ embeds: [statusEmbed] });
-                console.log(`Updated persistent inventory message: ${interaction.client.statusMessages.inventory.id}`);
-                return; // Successfully updated, exit early
-              } catch (editError) {
-                console.error('Error updating stored inventory message, will try searching:', editError);
-                // Continue to fallback method if edit fails
-              }
-            }
-            
-            // Fallback: search for an existing message if direct reference fails
-            const messages = await statusChannel.messages.fetch({ limit: 10 });
-            const botMessages = messages.filter(msg => 
-              msg.author.id === interaction.client.user.id && 
-              msg.embeds.length > 0 && 
-              msg.embeds[0].title && 
-              msg.embeds[0].title.includes('Inventory Status')
-            );
-            
-            if (botMessages.size > 0) {
-              // Update existing message
-              const statusMessage = botMessages.first();
-              await statusMessage.edit({ embeds: [statusEmbed] });
-              console.log(`Updated existing inventory message: ${statusMessage.id}`);
-              
-              // Store reference for future use
-              if (interaction.client.statusMessages) {
-                interaction.client.statusMessages.inventory = statusMessage;
-              }
-            } else {
-              // Create new message as last resort
-              const newMessage = await statusChannel.send({ embeds: [statusEmbed] });
-              console.log(`Created new inventory message: ${newMessage.id}`);
-              
-              // Store reference for future use
-              if (interaction.client.statusMessages) {
-                interaction.client.statusMessages.inventory = newMessage;
-              }
-            }
-          } catch (messageError) {
-            console.error('Error finding/updating inventory message:', messageError);
-            // If all else fails, send a new message
-            const newMessage = await statusChannel.send({ embeds: [statusEmbed] });
-            console.log(`Created fallback inventory message: ${newMessage.id}`);
-          }
+          // Update the inventory status
+          await inventorySystem.updateInventoryStatus(statusChannel);
         }
       } catch (error) {
         console.error('Error updating status channel:', error);

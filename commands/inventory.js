@@ -17,44 +17,19 @@ module.exports = {
       // Defer reply to have time to fetch data
       await interaction.deferReply();
       
+      // Import the inventory system module
+      const inventorySystem = require('../systems/inventory');
+      const db = require('../database');
+      
       // Get all items
       const items = await db.getItems();
       
-      // Create embed
-      const embed = new EmbedBuilder()
-        .setTitle('📦 Inventory Status')
-        .setColor('#6366F1')
-        .setDescription('**Current Stock Levels**')
-        .setTimestamp()
-        .setFooter({ text: 'Last updated' });
+      // Use the inventory system to create the embed with consistent formatting
+      const embed = inventorySystem.createInventoryEmbed(items);
       
+      // Modify the description if inventory is empty
       if (!items || items.length === 0) {
         embed.setDescription('**Inventory Empty**\n_No items currently in stock_');
-      } else {
-        // Group items by category
-        const drugs = items.filter(item => item.category === 'drug');
-        
-        // Add drug items
-        if (drugs.length > 0) {
-          let drugList = '';
-          drugs.forEach(item => {
-            // Add emoji based on quantity levels
-            let stockEmoji = '🔴'; // Low stock
-            if (item.quantity > 50) {
-              stockEmoji = '🟢'; // High stock
-            } else if (item.quantity > 20) {
-              stockEmoji = '🟡'; // Medium stock
-            }
-            
-            drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
-          });
-          
-          embed.addFields({
-            name: '💊 Drug Inventory',
-            value: drugList,
-            inline: false
-          });
-        }
       }
       
       // Send the embed

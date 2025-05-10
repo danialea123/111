@@ -228,78 +228,23 @@ async function processLogMessage(message, client, config, content = null, embedA
       }
     }
     
-    // Send updated inventory to status channel
+    // Use the inventory system module to update inventory status
     if (config.statusChannelId) {
       const statusChannel = client.channels.cache.get(config.statusChannelId);
       if (statusChannel) {
         logger.logMessage(`Sending update to status channel ${config.statusChannelId}`);
-        const { EmbedBuilder } = require('discord.js');
-        const items = await db.getItems();
         
-        const embed = new EmbedBuilder()
-          .setTitle('📦 Inventory Status')
-          .setColor('#6366F1')
-          .setDescription('**Current Stock Levels**')
-          .setTimestamp()
-          .setFooter({ text: 'Last updated' });
-        
-        // Add drug items
-        const drugs = items.filter(item => item.category === 'drug');
-        if (drugs.length > 0) {
-          let drugList = '';
-          drugs.forEach(item => {
-            // Add emoji based on quantity levels
-            let stockEmoji = '🔴'; // Low stock
-            if (item.quantity > 50) {
-              stockEmoji = '🟢'; // High stock
-            } else if (item.quantity > 20) {
-              stockEmoji = '🟡'; // Medium stock
-            }
-            
-            drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
-          });
-          
-          embed.addFields({
-            name: '💊 Drug Inventory',
-            value: drugList,
-            inline: false
-          });
-        }
-        
-        // Try to find existing status message
         try {
-          const messages = await statusChannel.messages.fetch({ limit: 10 });
-          // Find a message from this bot that has the inventory title
-          const botMessages = messages.filter(msg => 
-            msg.author.id === client.user.id && 
-            msg.embeds.length > 0 && 
-            msg.embeds[0].title && 
-            (msg.embeds[0].title.includes('Inventory Status') || msg.embeds[0].title.includes('Updated Inventory'))
-          );
+          // Import the inventory system module
+          const inventorySystem = require('../systems/inventory');
           
-          if (botMessages.size > 0) {
-            // Update the most recent status message
-            const statusMessage = botMessages.first();
-            await statusMessage.edit({ 
-              content: null,
-              embeds: [embed] 
-            });
-            logger.logMessage(`Updated existing inventory status message: ${statusMessage.id}`);
-          } else {
-            // If no existing message found, send a new one
-            const newMessage = await statusChannel.send({ 
-              content: null,
-              embeds: [embed] 
-            });
-            logger.logMessage(`Created new inventory status message: ${newMessage.id}`);
-          }
+          // Update the inventory status
+          await inventorySystem.updateInventoryStatus(statusChannel);
+          
+          logger.logMessage("Inventory update sent to status channel");
         } catch (error) {
-          logger.logMessage(`Error updating status message: ${error.message}`);
-          // Fallback to sending a new message
-          await statusChannel.send({ embeds: [embed] });
+          logger.logMessage(`Error updating inventory status: ${error.message}`);
         }
-        
-        logger.logMessage("Inventory update sent to status channel");
       } else {
         logger.logMessage(`Status channel ${config.statusChannelId} not found!`);
       }

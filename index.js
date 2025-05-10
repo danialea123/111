@@ -107,17 +107,18 @@ async function registerCommands() {
   }
 }
 
-// Variables to store the references to status messages
-const statusMessages = {
-  inventory: null,
-  drugTask: null,
-  gangTask: null
-};
+// Import system modules
+const { messageStore } = require('./utils/messageManager');
+const inventorySystem = require('./systems/inventory');
+const drugTaskSystem = require('./systems/drugTask');
+const gangTaskSystem = require('./systems/gangTask');
 
-// Check status channel
+/**
+ * Check if status channel exists and is accessible
+ * @returns {Promise<boolean>} True if channel is valid
+ */
 async function checkStatusChannel() {
   try {
-    // Get the status channel
     const statusChannel = client.channels.cache.get(config.statusChannelId);
     if (!statusChannel) {
       console.error(`Status channel not found: ${config.statusChannelId}`);
@@ -132,8 +133,10 @@ async function checkStatusChannel() {
   }
 }
 
-// Send initial inventory status
-async function sendInitialInventoryStatus() {
+/**
+ * Initialize all status messages using the new modular systems
+ */
+async function initializeStatusMessages() {
   try {
     // Get the status channel
     const statusChannel = client.channels.cache.get(config.statusChannelId);
@@ -142,99 +145,19 @@ async function sendInitialInventoryStatus() {
       return;
     }
     
-    // Get all items
-    const db = require('./database');
-    const items = await db.getItems();
+    // Import all system modules
+    const inventorySystem = require('./systems/inventory');
+    const drugTaskSystem = require('./systems/drugTask');
+    const gangTaskSystem = require('./systems/gangTask');
     
-    // Create embed
-    const { EmbedBuilder } = require('discord.js');
-    const embed = new EmbedBuilder()
-      .setTitle('📦 Inventory Status')
-      .setColor('#6366F1')
-      .setDescription('**Current Stock Levels**')
-      .setTimestamp()
-      .setFooter({ text: 'Last updated' });
+    // Initialize all three systems in the same channel
+    await inventorySystem.updateInventoryStatus(statusChannel);
+    await drugTaskSystem.updateDrugTaskStatus(statusChannel);
+    await gangTaskSystem.updateGangTaskStatus(statusChannel);
     
-    // Add drug items
-    const drugs = items.filter(item => item.category === 'drug');
-    if (drugs.length > 0) {
-      let drugList = '';
-      drugs.forEach(item => {
-        // Add emoji based on quantity levels
-        let stockEmoji = '🔴'; // Low stock
-        if (item.quantity > 50) {
-          stockEmoji = '🟢'; // High stock
-        } else if (item.quantity > 20) {
-          stockEmoji = '🟡'; // Medium stock
-        }
-        
-        drugList += `${stockEmoji} \`${item.name}\` — **${item.quantity}**\n`;
-      });
-      
-      embed.addFields({
-        name: '💊 Drug Inventory',
-        value: drugList,
-        inline: false
-      });
-    }
-    
-    // Try to fetch the last 10 messages to see if we already have a status message
-    try {
-      const messages = await statusChannel.messages.fetch({ limit: 10 });
-      // Find a message from this bot that has the inventory title
-      const botMessages = messages.filter(msg => 
-        msg.author.id === client.user.id && 
-        msg.embeds.length > 0 && 
-        msg.embeds[0].title && 
-        (msg.embeds[0].title.includes('Inventory Status') || msg.embeds[0].title.includes('Updated Inventory'))
-      );
-      
-      if (botMessages.size > 0) {
-        // Use the most recent message as our inventory status message
-        statusMessages.inventory = botMessages.first();
-        console.log(`Found existing inventory status message with ID: ${statusMessages.inventory.id}`);
-        
-        // Update the existing message
-        await statusMessages.inventory.edit({ 
-          embeds: [embed] 
-        });
-        console.log(`Updated existing inventory status message: ${statusMessages.inventory.id}`);
-      } else {
-        // Send a new message if none found
-        statusMessages.inventory = await statusChannel.send({ 
-          embeds: [embed] 
-        });
-        console.log(`Created new inventory status message: ${statusMessages.inventory.id}`);
-      }
-    } catch (fetchError) {
-      console.error('Error fetching messages to find existing status:', fetchError);
-      
-      // If there was an error, try to send a new message anyway
-      statusMessages.inventory = await statusChannel.send({ 
-        embeds: [embed] 
-      });
-      console.log(`Created new inventory status message (after error): ${statusMessages.inventory.id}`);
-    }
-    
-    console.log(`Inventory status updated in channel ${config.statusChannelId}`);
+    console.log('All status messages initialized successfully');
   } catch (error) {
-    console.error('Error sending initial inventory status:', error);
-  }
-}
-
-// Initialize XP status in XP channel
-async function sendInitialXPStatus() {
-  try {
-    // Initialize both drug and gang task status
-    const xpFunctions = require('./functions/xpFunctions');
-    
-    // Update XP statuses in both channels
-    await xpFunctions.updateXPStatus(client, config, 'drug');
-    await xpFunctions.updateXPStatus(client, config, 'gang');
-    
-    console.log(`XP status initialized`);
-  } catch (error) {
-    console.error('Error sending initial XP status:', error);
+    console.error('Error initializing status messages:', error);
   }
 }
 
@@ -252,21 +175,18 @@ client.on('ready', async () => {
     status: 'online',
   });
   
-  // Make status messages available to all parts of the bot
-  client.statusMessages = statusMessages;
+  // Make message store available to all components
+  client.messageStore = messageStore;
   
   // Register slash commands
   await registerCommands();
   
-  // Check if status channel exists
+  // Check if status channel exists and initialize messages
   if (config.statusChannelId) {
-    await checkStatusChannel();
-    
-    // Send all the status updates
-    await sendInitialInventoryStatus();
-    
-    // Send initial XP status to main channel only
-    await sendInitialXPStatus();
+    if (await checkStatusChannel()) {
+      // Initialize all status messages in the status channel
+      await initializeStatusMessages();
+    }
   } else {
     console.log('No status channel configured, skipping status message initialization');
   }

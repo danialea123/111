@@ -96,18 +96,21 @@ async function processXPMessage(message, client, config, logData) {
 // Update XP Status in status channel
 async function updateXPStatus(client, config, xpType) {
   try {
-    // Create embed based on XP type
-    let embed;
-    const db = require('../database');
+    // Get the status channel
+    const statusChannel = client.channels.cache.get(config.statusChannelId);
+    if (!statusChannel) {
+      logger.logMessage(`[${xpType}] Status channel not found: ${config.statusChannelId}`);
+      return;
+    }
     
+    logger.logMessage(`Updating ${xpType} XP status in channel ${config.statusChannelId}`);
+    
+    // Use the appropriate system module based on XP type
     if (xpType === 'drug') {
-      const status = await db.getDrugTaskXPStatus();
-      
-      embed = new EmbedBuilder()
-        .setColor('#10B981')
-        .setTitle('💊 Drug Task Status')
-        .setDescription(`**Daily Progress**\n${status.count}/${status.limit} players completed today`)
-        .setTimestamp();
+      // Use the drug task system module
+      const drugTaskSystem = require('../systems/drugTask');
+      await drugTaskSystem.updateDrugTaskStatus(statusChannel);
+      return;
       
       // Add player list with checkmarks
       if (status.players.length > 0) {
@@ -131,39 +134,10 @@ async function updateXPStatus(client, config, xpType) {
       embed.setFooter({ text: `Resets at midnight UTC • ${status.date}` });
       
     } else if (xpType === 'gang') {
-      const status = await db.getGangTaskXPStatus();
-      
-      embed = new EmbedBuilder()
-        .setColor('#EF4444')
-        .setTitle('🔫 Gang Task Status')
-        .setDescription(`**Daily Gang Operations**\nTracking progress for today's gang activities`)
-        .setTimestamp();
-      
-      // Add morning period (6AM-6PM)
-      const morningPlayers = status.morningPlayers.map(player => 
-        `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
-      ).join('\n');
-      
-      embed.addFields({
-        name: '☀️ Daytime Operations (6AM-6PM)',
-        value: morningPlayers || '_No operations completed during daytime_',
-        inline: false
-      });
-      
-      // Add night period (6PM-6AM)
-      const nightPlayers = status.nightPlayers.map(player => 
-        `\`${player.ic_player_name}\` • **${player.xp_amount} XP** ✅`
-      ).join('\n');
-      
-      embed.addFields({
-        name: '🌙 Nighttime Operations (6PM-6AM)',
-        value: nightPlayers || '_No operations completed during nighttime_',
-        inline: false
-      });
-      
-      // Add current period indicator
-      const currentPeriodText = status.currentPeriod === 1 ? 'Daytime (6AM-6PM)' : 'Nighttime (6PM-6AM)';
-      embed.setFooter({ text: `Active Period: ${currentPeriodText} • ${status.date}` });
+      // Use the gang task system module
+      const gangTaskSystem = require('../systems/gangTask');
+      await gangTaskSystem.updateGangTaskStatus(statusChannel);
+      return;
     }
     
     if (!embed) {
